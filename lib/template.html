@@ -5,8 +5,11 @@
 
 <meta name="generator" content="Jekyll v{{ jekyll.version }}" />
 
-{% if seo_tag.page_title %}
-  <meta property="og:title" content="{{ seo_tag.page_title }}" />
+<!-- ENHANCEMENT: Open Graph title (can differ from page title) -->
+<!-- Allows different titles for social media vs browser tab -->
+<!-- Set in front matter: og:title: "Social Media Title" -->
+{% if seo_tag.og_title %}
+  <meta property="og:title" content="{{ seo_tag.og_title }}" />
 {% endif %}
 
 {% if seo_tag.author.name %}
@@ -15,9 +18,16 @@
 
 <meta property="og:locale" content="{{ seo_tag.page_locale }}" />
 
+<!-- Standard meta description for search engines -->
 {% if seo_tag.description %}
   <meta name="description" content="{{ seo_tag.description }}" />
-  <meta name="twitter:description" property="og:description" content="{{ seo_tag.description }}" />
+{% endif %}
+
+<!-- ENHANCEMENT: Open Graph description (can differ from meta description) -->
+<!-- Platform-optimized description for social media sharing -->
+<!-- Set in front matter: og:description: "Social media description" -->
+{% if seo_tag.og_description %}
+  <meta property="og:description" content="{{ seo_tag.og_description }}" />
 {% endif %}
 
 {% if site.url %}
@@ -42,11 +52,54 @@
   {% endif %}
 {% endif %}
 
+<!-- ENHANCEMENT: Open Graph type with explicit override support -->
+<!-- Can be explicitly set in front matter: og:type: "article" -->
+<!-- Auto-detects: article (posts), website (homepage), webpage (other) -->
+{% if seo_tag.type %}
+  <meta property="og:type" content="{{ seo_tag.type | downcase }}" />
+{% endif %}
+
 {% if page.date %}
-  <meta property="og:type" content="article" />
   <meta property="article:published_time" content="{{ page.date | date_to_xmlschema }}" />
-{% else %}
-  <meta property="og:type" content="website" />
+{% endif %}
+
+<!-- ENHANCEMENT: Audio metadata for Open Graph -->
+<!-- Enables rich audio previews on Facebook and other platforms -->
+<!-- Set in front matter: og:audio, og:audio:secure_url, og:audio:type -->
+{% if seo_tag.audio %}
+  <meta property="og:audio" content="{{ seo_tag.audio.url }}" />
+  {% if seo_tag.audio.secure_url %}
+    <meta property="og:audio:secure_url" content="{{ seo_tag.audio.secure_url }}" />
+  {% endif %}
+  {% if seo_tag.audio.type %}
+    <meta property="og:audio:type" content="{{ seo_tag.audio.type }}" />
+  {% endif %}
+{% endif %}
+
+<!-- ENHANCEMENT: Video metadata for Open Graph -->
+<!-- Enables rich video previews with player embeds -->
+<!-- Set in front matter: og:video, og:video:type, og:video:width, og:video:height -->
+{% if seo_tag.video %}
+  <meta property="og:video" content="{{ seo_tag.video.url }}" />
+  {% if seo_tag.video.secure_url %}
+    <meta property="og:video:secure_url" content="{{ seo_tag.video.secure_url }}" />
+  {% endif %}
+  {% if seo_tag.video.type %}
+    <meta property="og:video:type" content="{{ seo_tag.video.type }}" />
+  {% endif %}
+  {% if seo_tag.video.width %}
+    <meta property="og:video:width" content="{{ seo_tag.video.width }}" />
+  {% endif %}
+  {% if seo_tag.video.height %}
+    <meta property="og:video:height" content="{{ seo_tag.video.height }}" />
+  {% endif %}
+{% endif %}
+
+<!-- ENHANCEMENT: Robots meta tag -->
+<!-- Per-page control over search engine indexing -->
+<!-- Set in front matter: robots: "index, follow" or "noindex, nofollow" -->
+{% if seo_tag.robots %}
+  <meta name="robots" content="{{ seo_tag.robots }}" />
 {% endif %}
 
 {% if paginator.previous_page %}
@@ -56,19 +109,31 @@
   <link rel="next" href="{{ paginator.next_page_path | absolute_url }}" />
 {% endif %}
 
-{% if seo_tag.image %}
-  <meta name="twitter:card" content="{{ page.twitter.card | default: site.twitter.card | default: "summary_large_image" }}" />
-  <meta name="twitter:image" content="{{ seo_tag.image.path }}" />
-{% else %}
-  <meta name="twitter:card" content="summary" />
+<!-- ENHANCEMENT: Twitter Card with full customization support -->
+<!-- All twitter:* fields can be customized independently -->
+<!-- Set in front matter: twitter:card, twitter:title, twitter:description, twitter:image -->
+
+<!-- Twitter Card type: summary, summary_large_image, app, or player -->
+{% if seo_tag.twitter_card %}
+  <meta name="twitter:card" content="{{ seo_tag.twitter_card }}" />
 {% endif %}
 
-{% if seo_tag.image.alt %}
-  <meta name="twitter:image:alt" content="{{ seo_tag.image.alt }}" />
+<!-- Twitter-specific title (can differ from og:title) -->
+{% if seo_tag.twitter_title %}
+  <meta name="twitter:title" content="{{ seo_tag.twitter_title }}" />
 {% endif %}
 
-{% if seo_tag.page_title %}
-  <meta name="twitter:title" content="{{ seo_tag.page_title }}" />
+<!-- Twitter-specific description (can differ from og:description) -->
+{% if seo_tag.twitter_description %}
+  <meta name="twitter:description" content="{{ seo_tag.twitter_description }}" />
+{% endif %}
+
+<!-- Twitter-specific image (can differ from og:image) -->
+{% if seo_tag.twitter_image %}
+  <meta name="twitter:image" content="{{ seo_tag.twitter_image }}" />
+  {% if seo_tag.image.alt %}
+    <meta name="twitter:image:alt" content="{{ seo_tag.image.alt }}" />
+  {% endif %}
 {% endif %}
 
 {% if site.twitter %}
