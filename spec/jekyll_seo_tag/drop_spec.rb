@@ -559,4 +559,340 @@ RSpec.describe Jekyll::SeoTag::Drop do
   it "exposes the JSON-LD drop" do
     expect(subject.json_ld).to be_a(Jekyll::SeoTag::JSONLDDrop)
   end
+
+  # ====================================================================================
+  # ENHANCED FEATURES TESTS
+  # ====================================================================================
+
+  context "enhanced page_title with explicit page_title field" do
+    context "with explicit page_title field" do
+      let(:page_meta) { { "page_title" => "Browser Tab Title", "title" => "Full Page Title" } }
+
+      it "uses page_title field for browser tab" do
+        expect(subject.page_title).to eql("Browser Tab Title")
+      end
+    end
+
+    context "without explicit page_title field" do
+      let(:page_meta) { { "title" => "Full Page Title" } }
+
+      it "falls back to title" do
+        expect(subject.page_title).to eql("Full Page Title")
+      end
+    end
+  end
+
+  context "og_title" do
+    context "with colon notation" do
+      let(:page_meta) { { "og:title" => "Social Media Title", "title" => "Page Title" } }
+
+      it "uses og:title" do
+        expect(subject.og_title).to eql("Social Media Title")
+      end
+    end
+
+    context "with nested notation" do
+      let(:page_meta) { { "og" => { "title" => "Social Media Title" }, "title" => "Page Title" } }
+
+      it "uses og.title" do
+        expect(subject.og_title).to eql("Social Media Title")
+      end
+    end
+
+    context "without og:title" do
+      let(:page_meta) { { "title" => "Page Title" } }
+
+      it "falls back to page_title" do
+        expect(subject.og_title).to eql("Page Title | site title")
+      end
+    end
+  end
+
+  context "og_description" do
+    context "with colon notation" do
+      let(:page_meta) { { "og:description" => "Social media description", "description" => "Meta description" } }
+
+      it "uses og:description" do
+        expect(subject.og_description).to eql("Social media description")
+      end
+    end
+
+    context "with nested notation" do
+      let(:page_meta) { { "og" => { "description" => "Social media description" } } }
+
+      it "uses og.description" do
+        expect(subject.og_description).to eql("Social media description")
+      end
+    end
+
+    context "without og:description" do
+      let(:page_meta) { { "description" => "Meta description" } }
+
+      it "falls back to description" do
+        expect(subject.og_description).to eql("Meta description")
+      end
+    end
+  end
+
+  context "twitter_title" do
+    context "with colon notation" do
+      let(:page_meta) { { "twitter:title" => "Twitter Title" } }
+
+      it "uses twitter:title" do
+        expect(subject.twitter_title).to eql("Twitter Title")
+      end
+    end
+
+    context "with nested notation" do
+      let(:page_meta) { { "twitter" => { "title" => "Twitter Title" } } }
+
+      it "uses twitter.title" do
+        expect(subject.twitter_title).to eql("Twitter Title")
+      end
+    end
+
+    context "fallback chain" do
+      let(:page_meta) { { "og:title" => "OG Title", "title" => "Page Title" } }
+
+      it "falls back to og_title" do
+        expect(subject.twitter_title).to eql("OG Title")
+      end
+    end
+  end
+
+  context "twitter_description" do
+    context "with twitter:description" do
+      let(:page_meta) { { "twitter:description" => "Twitter description" } }
+
+      it "uses twitter:description" do
+        expect(subject.twitter_description).to eql("Twitter description")
+      end
+    end
+
+    context "fallback chain" do
+      let(:page_meta) { { "og:description" => "OG description", "description" => "Meta description" } }
+
+      it "falls back to og_description" do
+        expect(subject.twitter_description).to eql("OG description")
+      end
+    end
+  end
+
+  context "twitter_card" do
+    context "with explicit twitter:card" do
+      let(:page_meta) { { "twitter:card" => "summary" } }
+
+      it "uses twitter:card" do
+        expect(subject.twitter_card).to eql("summary")
+      end
+    end
+
+    context "with nested notation" do
+      let(:page_meta) { { "twitter" => { "card" => "summary" } } }
+
+      it "uses twitter.card" do
+        expect(subject.twitter_card).to eql("summary")
+      end
+    end
+
+    context "with image" do
+      let(:page_meta) { { "image" => "/image.png" } }
+
+      it "defaults to summary_large_image" do
+        expect(subject.twitter_card).to eql("summary_large_image")
+      end
+    end
+
+    context "without image" do
+      let(:page_meta) { {} }
+
+      it "defaults to summary" do
+        expect(subject.twitter_card).to eql("summary")
+      end
+    end
+  end
+
+  context "twitter_image" do
+    let(:config) { { "url" => "http://example.com" } }
+
+    context "with explicit twitter:image" do
+      let(:page_meta) { { "twitter:image" => "/twitter-image.png", "image" => "/og-image.png" } }
+
+      it "uses twitter:image" do
+        expect(subject.twitter_image).to include("twitter-image.png")
+      end
+    end
+
+    context "without twitter:image" do
+      let(:page_meta) { { "image" => "/og-image.png" } }
+
+      it "falls back to standard image" do
+        expect(subject.twitter_image).to include("og-image.png")
+      end
+    end
+  end
+
+  context "type with og:type override" do
+    context "with colon notation" do
+      let(:page_meta) { { "og:type" => "article" } }
+
+      it "uses og:type" do
+        expect(subject.type).to eql("article")
+      end
+    end
+
+    context "with nested notation" do
+      let(:page_meta) { { "og" => { "type" => "article" } } }
+
+      it "uses og.type" do
+        expect(subject.type).to eql("article")
+      end
+    end
+
+    context "with simple type field" do
+      let(:page_meta) { { "type" => "article" } }
+
+      it "uses type" do
+        expect(subject.type).to eql("article")
+      end
+    end
+
+    context "auto-detection for posts" do
+      let(:page_meta) { { "date" => "2025-01-01" } }
+
+      it "detects BlogPosting" do
+        expect(subject.type).to eql("BlogPosting")
+      end
+    end
+  end
+
+  context "robots" do
+    context "with robots directive" do
+      let(:page_meta) { { "robots" => "index, follow" } }
+
+      it "returns robots directive" do
+        expect(subject.robots).to eql("index, follow")
+      end
+    end
+
+    context "with noindex" do
+      let(:page_meta) { { "robots" => "noindex, nofollow" } }
+
+      it "returns noindex directive" do
+        expect(subject.robots).to eql("noindex, nofollow")
+      end
+    end
+
+    context "without robots directive" do
+      let(:page_meta) { {} }
+
+      it "returns nil" do
+        expect(subject.robots).to be_nil
+      end
+    end
+  end
+
+  context "audio" do
+    context "with colon notation" do
+      let(:page_meta) do
+        {
+          "og:audio"            => "https://example.com/audio.mp3",
+          "og:audio:secure_url" => "https://example.com/audio.mp3",
+          "og:audio:type"       => "audio/mpeg",
+        }
+      end
+
+      it "returns audio hash" do
+        expect(subject.audio).to be_a(Hash)
+        expect(subject.audio["url"]).to eql("https://example.com/audio.mp3")
+        expect(subject.audio["secure_url"]).to eql("https://example.com/audio.mp3")
+        expect(subject.audio["type"]).to eql("audio/mpeg")
+      end
+    end
+
+    context "with nested notation" do
+      let(:page_meta) do
+        {
+          "og" => {
+            "audio"            => "https://example.com/audio.mp3",
+            "audio_secure_url" => "https://example.com/audio.mp3",
+            "audio_type"       => "audio/mpeg",
+          },
+        }
+      end
+
+      it "returns audio hash" do
+        expect(subject.audio).to be_a(Hash)
+        expect(subject.audio["url"]).to eql("https://example.com/audio.mp3")
+      end
+    end
+
+    context "with minimal audio" do
+      let(:page_meta) { { "og:audio" => "https://example.com/audio.mp3" } }
+
+      it "defaults secure_url and type" do
+        expect(subject.audio["url"]).to eql("https://example.com/audio.mp3")
+        expect(subject.audio["secure_url"]).to eql("https://example.com/audio.mp3")
+        expect(subject.audio["type"]).to eql("audio/mpeg")
+      end
+    end
+
+    context "without audio" do
+      let(:page_meta) { {} }
+
+      it "returns nil" do
+        expect(subject.audio).to be_nil
+      end
+    end
+  end
+
+  context "video" do
+    context "with colon notation" do
+      let(:page_meta) do
+        {
+          "og:video"            => "https://example.com/video.mp4",
+          "og:video:secure_url" => "https://example.com/video.mp4",
+          "og:video:type"       => "video/mp4",
+          "og:video:width"      => "1280",
+          "og:video:height"     => "720",
+        }
+      end
+
+      it "returns video hash" do
+        expect(subject.video).to be_a(Hash)
+        expect(subject.video["url"]).to eql("https://example.com/video.mp4")
+        expect(subject.video["secure_url"]).to eql("https://example.com/video.mp4")
+        expect(subject.video["type"]).to eql("video/mp4")
+        expect(subject.video["width"]).to eql("1280")
+        expect(subject.video["height"]).to eql("720")
+      end
+    end
+
+    context "with nested notation" do
+      let(:page_meta) do
+        {
+          "og" => {
+            "video"            => "https://example.com/video.mp4",
+            "video_secure_url" => "https://example.com/video.mp4",
+            "video_type"       => "video/mp4",
+            "video_width"      => "1280",
+            "video_height"     => "720",
+          },
+        }
+      end
+
+      it "returns video hash" do
+        expect(subject.video).to be_a(Hash)
+        expect(subject.video["url"]).to eql("https://example.com/video.mp4")
+      end
+    end
+
+    context "without video" do
+      let(:page_meta) { {} }
+
+      it "returns nil" do
+        expect(subject.video).to be_nil
+      end
+    end
+  end
 end

@@ -45,9 +45,29 @@ module Jekyll
         @site_description ||= format_string site["description"]
       end
 
-      # Page title without site title or description appended
+      # Returns the page title without site title or description appended
+      #
+      # ENHANCEMENT: Now supports explicit 'page_title' field for browser tab titles
+      # This allows different titles for the browser tab vs social media sharing
+      #
+      # Priority:
+      #   1. page["page_title"] - Explicit browser tab title
+      #   2. page["title"] - Standard page title
+      #   3. page["title_category"] - Category-based title
+      #   4. site_title - Site-wide title
+      #
+      # Returns the formatted page title string
+      #
+      # Example front matter:
+      #   page_title: "Short Tab Title"
+      #   title: "Full Page Title for Content"
+      #   og:title: "Social Media Title"
       def page_title
         return @page_title if defined?(@page_title)
+
+        # Check for explicit page_title field first (for browser tab)
+        explicit_page_title = format_string(page["page_title"])
+        return @page_title = explicit_page_title if explicit_page_title
 
         title = format_string(page["title"])
         title_category = format_string(page["title_category"])
@@ -130,10 +150,42 @@ module Jekyll
         @date_published ||= filters.date_to_xmlschema(page["date"]) if page["date"]
       end
 
+      # Returns the Open Graph type of the content
+      #
+      # ENHANCEMENT: Now supports explicit og:type override in front matter
+      # This allows precise control over how content is classified on social platforms
+      #
+      # Priority:
+      #   1. page["og:type"] or page["og"]["type"] - Explicit Open Graph type
+      #   2. page_seo["type"] - Type in seo: namespace
+      #   3. page["type"] - Simple type field
+      #   4. Auto-detection based on page properties:
+      #      - Homepage/About → "WebSite"
+      #      - Posts with dates → "BlogPosting"
+      #      - Other pages → "WebPage"
+      #
+      # Returns the og:type string
+      #
+      # Common Open Graph types:
+      #   - "article" - Articles, blog posts, news stories
+      #   - "website" - Generic websites
+      #   - "video.movie" - Movies
+      #   - "music.song" - Music tracks
+      #   - "book" - Books
+      #
+      # Example front matter:
+      #   og:type: "article"
+      #
+      # See: https://ogp.me/#types for complete list
       def type
         @type ||= begin
-          if page_seo["type"]
+          # Support og:type field directly in front matter
+          if page["og:type"] || page["og"]["type"]
+            page["og:type"] || page["og"]["type"]
+          elsif page_seo["type"]
             page_seo["type"]
+          elsif page["type"]
+            page["type"]
           elsif homepage_or_about?
             "WebSite"
           elsif page["date"]
@@ -186,6 +238,213 @@ module Jekyll
 
       def description_max_words
         @description_max_words ||= page["seo_description_max_words"] || 100
+      end
+
+      # Returns the Open Graph specific title
+      #
+      # This allows different titles for Open Graph (Facebook, LinkedIn) vs browser tab
+      # Supports both colon notation (og:title) and nested notation (og: { title: })
+      #
+      # Priority:
+      #   1. page["og:title"] or page["og"]["title"]
+      #   2. Falls back to page_title
+      #
+      # Returns the formatted og:title string
+      #
+      # Examples:
+      #   og:title: "My Social Media Title"
+      #   # or
+      #   og:
+      #     title: "My Social Media Title"
+      def og_title
+        @og_title ||= begin
+          format_string(page["og:title"] || page["og"]["title"]) || page_title
+        end
+      end
+
+      # Returns the Open Graph specific description
+      #
+      # Allows platform-optimized descriptions for social media sharing
+      # Automatically truncates to description_max_words (default 100)
+      #
+      # Priority:
+      #   1. page["og:description"] or page["og"]["description"]
+      #   2. Falls back to standard description
+      #
+      # Returns the formatted og:description string (truncated if needed)
+      def og_description
+        @og_description ||= begin
+          value = format_string(page["og:description"] || page["og"]["description"]) || description
+          snippet(value, description_max_words) if value
+        end
+      end
+
+      # Returns the Twitter Card specific title
+      #
+      # Enables Twitter-optimized titles separate from other platforms
+      # Follows fallback chain: twitter:title → og:title → page_title
+      #
+      # Priority:
+      #   1. page["twitter:title"] or page["twitter"]["title"]
+      #   2. og_title (Open Graph title)
+      #   3. page_title (browser tab title)
+      #
+      # Returns the formatted twitter:title string
+      def twitter_title
+        @twitter_title ||= begin
+          format_string(page["twitter:title"] || page["twitter"]["title"]) || og_title || page_title
+        end
+      end
+
+      # Returns the Twitter Card specific description
+      #
+      # Twitter-optimized description with automatic truncation
+      # Follows fallback chain: twitter:description → og:description → description
+      #
+      # Priority:
+      #   1. page["twitter:description"] or page["twitter"]["description"]
+      #   2. og_description (Open Graph description)
+      #   3. description (standard meta description)
+      #
+      # Returns the formatted twitter:description string (truncated if needed)
+      def twitter_description
+        @twitter_description ||= begin
+          value = format_string(page["twitter:description"] || page["twitter"]["description"]) || og_description || description
+          snippet(value, description_max_words) if value
+        end
+      end
+
+      # Returns the Twitter Card type
+      #
+      # Determines which Twitter Card format to use
+      # Defaults to "summary_large_image" if image exists, "summary" otherwise
+      #
+      # Priority:
+      #   1. page["twitter:card"] or page["twitter"]["card"]
+      #   2. "summary_large_image" if page has image
+      #   3. "summary" as fallback
+      #
+      # Returns the twitter:card type string
+      #
+      # Common values:
+      #   - "summary" - Small image card
+      #   - "summary_large_image" - Large image card (recommended)
+      #   - "app" - App card
+      #   - "player" - Video/audio player card
+      def twitter_card
+        @twitter_card ||= begin
+          page["twitter:card"] || page["twitter"]["card"] ||
+          (image ? "summary_large_image" : "summary")
+        end
+      end
+
+      # Returns the Twitter Card specific image URL
+      #
+      # Allows different images for Twitter vs other platforms
+      # Automatically handles URL escaping and absolute URLs
+      #
+      # Priority:
+      #   1. page["twitter:image"] or page["twitter"]["image"]
+      #   2. Falls back to standard image path
+      #
+      # Returns the escaped, absolute twitter:image URL or nil
+      def twitter_image
+        @twitter_image ||= begin
+          img = page["twitter:image"] || page["twitter"]["image"]
+          if img
+            if absolute_url?(img)
+              filters.uri_escape(img)
+            else
+              filters.uri_escape(filters.absolute_url(img))
+            end
+          else
+            image&.path
+          end
+        end
+      end
+
+      # Returns the robots meta tag directive
+      #
+      # Provides per-page control over search engine indexing
+      # Set in front matter to control crawler behavior
+      #
+      # Returns the robots directive string or nil
+      #
+      # Common values:
+      #   - "index, follow" - Allow indexing and following links (default)
+      #   - "noindex, follow" - Don't index, but follow links
+      #   - "noindex, nofollow" - Don't index or follow links
+      #   - "index, nofollow" - Index page but don't follow links
+      #
+      # Example front matter:
+      #   robots: "index, follow"
+      def robots
+        @robots ||= page["robots"]
+      end
+
+      # Returns audio metadata for Open Graph
+      #
+      # Enables rich audio previews on Facebook and other platforms
+      # Supports both colon notation and nested notation
+      #
+      # Returns a hash with audio properties or nil if no audio specified:
+      #   {
+      #     "url" => "https://example.com/audio.mp3",
+      #     "secure_url" => "https://example.com/audio.mp3",
+      #     "type" => "audio/mpeg"
+      #   }
+      #
+      # Example front matter:
+      #   og:audio: "https://example.com/podcast.mp3"
+      #   og:audio:secure_url: "https://example.com/podcast.mp3"
+      #   og:audio:type: "audio/mpeg"
+      #
+      # Supported formats: MP3, OGG, WAV, etc.
+      def audio
+        @audio ||= begin
+          audio_url = page["og:audio"] || page["og"]["audio"]
+          return nil unless audio_url
+
+          {
+            "url" => audio_url,
+            "secure_url" => page["og:audio:secure_url"] || page["og"]["audio_secure_url"] || audio_url,
+            "type" => page["og:audio:type"] || page["og"]["audio_type"] || "audio/mpeg"
+          }
+        end
+      end
+
+      # Returns video metadata for Open Graph
+      #
+      # Enables rich video previews with player embeds
+      # Supports dimensions, types, and secure URLs
+      #
+      # Returns a hash with video properties or nil if no video specified:
+      #   {
+      #     "url" => "https://example.com/video.mp4",
+      #     "secure_url" => "https://example.com/video.mp4",
+      #     "type" => "video/mp4",
+      #     "width" => "1280",
+      #     "height" => "720"
+      #   }
+      #
+      # Example front matter:
+      #   og:video: "https://example.com/video.mp4"
+      #   og:video:type: "video/mp4"
+      #   og:video:width: "1280"
+      #   og:video:height: "720"
+      def video
+        @video ||= begin
+          video_url = page["og:video"] || page["og"]["video"]
+          return nil unless video_url
+
+          {
+            "url" => video_url,
+            "secure_url" => page["og:video:secure_url"] || page["og"]["video_secure_url"] || video_url,
+            "type" => page["og:video:type"] || page["og"]["video_type"],
+            "width" => page["og:video:width"] || page["og"]["video_width"],
+            "height" => page["og:video:height"] || page["og"]["video_height"]
+          }
+        end
       end
 
       private
